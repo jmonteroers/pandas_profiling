@@ -38,6 +38,8 @@ class Snapshot:
     # capture of this logical DataFrame.
     operations: list[Any] = field(default_factory=list)
 
+    code: str | None = None
+
 
 @dataclass
 class DataFrameTracker:
@@ -78,6 +80,7 @@ class AnalysisContext:
         dataframe_name: str,
         snapshot_name: str,
         df: pd.DataFrame,
+        code: str | None = None,
     ) -> pd.DataFrame:
         """
         Capture the current state of a logical DataFrame.
@@ -123,6 +126,7 @@ class AnalysisContext:
                 name=snapshot_name,
                 dataframe=df.copy(),
                 operations=new_operations,
+                code=code
             )
         )
 
@@ -183,12 +187,15 @@ def render_operations(
             {
                 "Operation":
                     operation.fn.__name__,
-
+                "Input shape":
+                    operation.input_df.shape,
+                "Output shape":
+                    operation.output_df.shape,
                 "Arguments":
                     str(operation.fn_args),
-
                 "Keyword arguments":
                     str(replace_functions_with_source(operation.fn_kwargs)),
+                "Execution": str(operation.execution_stats.exec_time)
             }
         )
 
@@ -299,6 +306,14 @@ def render_sample(
     )
 
 
+def render_code(code: str | None) -> None:
+    if not code:
+        return
+
+    pb.print_h4("Transformation code")
+    pb.print_code_block(code)
+
+
 def replace_functions_with_source(data):
     """
     Recursively inspects a dictionary, list, or nested structure and replaces
@@ -336,6 +351,13 @@ def render_snapshot(
 
     render_operations(
         snapshot.operations
+    )
+
+    # --------------------------------------------------------
+    # Code (optional)
+    # --------------------------------------------------------
+    render_code(
+        snapshot.code
     )
 
     # --------------------------------------------------------
@@ -476,8 +498,8 @@ def create_report(
         # DataFrame heading
         # ----------------------------------------------------
 
-        pb.print_h2(
-            dataframe_name,
+        pb.print_h1(
+            f"Table {dataframe_name}",
             reference=dataframe_references[
                 dataframe_name
             ],

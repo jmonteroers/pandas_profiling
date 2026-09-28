@@ -4,8 +4,8 @@ from dataclasses import dataclass, field
 from typing import Any
 
 import pandas as pd
-import pandas_log
 import pyreball as pb
+import inspect
 
 
 # ============================================================
@@ -179,7 +179,6 @@ def render_operations(
     rows = []
 
     for operation in operations:
-
         rows.append(
             {
                 "Operation":
@@ -189,7 +188,7 @@ def render_operations(
                     str(operation.fn_args),
 
                 "Keyword arguments":
-                    str(operation.fn_kwargs),
+                    str(replace_functions_with_source(operation.fn_kwargs)),
             }
         )
 
@@ -298,6 +297,26 @@ def render_sample(
     pb.print_table(
         df.head(sample_size)
     )
+
+
+def replace_functions_with_source(data):
+    """
+    Recursively inspects a dictionary, list, or nested structure and replaces
+    function types/callables with their source code string representation.
+    """
+    if isinstance(data, dict):
+        return {k: replace_functions_with_source(v) for k, v in data.items()}
+    elif isinstance(data, list):
+        return [replace_functions_with_source(item) for item in data]
+    elif callable(data):
+        try:
+            # inspect.getsource retrieves the original Python code
+            return inspect.getsource(data).strip()
+        except (TypeError, OSError):
+            # Fallback for C-extensions/built-ins (e.g., len) or dynamically executed code
+            return f"<Source unavailable for {getattr(data, '__name__', str(data))}>"
+    return data
+
 
 
 # ============================================================
@@ -457,7 +476,7 @@ def create_report(
         # DataFrame heading
         # ----------------------------------------------------
 
-        pb.print_h1(
+        pb.print_h2(
             dataframe_name,
             reference=dataframe_references[
                 dataframe_name
